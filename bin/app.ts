@@ -1,0 +1,30 @@
+#!/usr/bin/env node
+import 'dotenv/config';
+import * as cdk from 'aws-cdk-lib';
+import { ReceiptBotStack } from '../lib/receipt-bot-stack';
+
+// 必要な環境変数の存在確認
+const requiredEnvVars = [
+  'S3_BUCKET_NAME',
+  'OPENAI_API_KEY',
+  'GOOGLE_SERVICE_ACCOUNT_JSON',
+  'SPREADSHEET_ID'
+];
+
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    throw new Error(`環境変数 ${envVar} が設定されていません。`);
+  }
+}
+
+const app = new cdk.App();
+new ReceiptBotStack(app, 'ReceiptBotStack', {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.AWS_REGION || 'ap-northeast-1'
+  },
+  s3BucketName: process.env.S3_BUCKET_NAME!,
+  openaiApiKey: process.env.OPENAI_API_KEY!,
+  googleServiceAccountJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
+  spreadsheetId: process.env.SPREADSHEET_ID!
+}); 

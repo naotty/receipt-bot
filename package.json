@@ -1,0 +1,34 @@
+{
+  "name": "receipt-bot",
+  "version": "1.0.0",
+  "description": "Receipt processing bot that extracts amount from emails and records to Google Sheets",
+  "main": "index.js",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk",
+    "deploy": "npm run build && cdk deploy",
+    "bootstrap": "cdk bootstrap"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.815.0",
+    "dotenv": "^16.5.0",
+    "googleapis": "^133.0.0",
+    "mailparser": "^3.6.4",
+    "openai": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.119",
+    "@types/mailparser": "^3.4.4",
+    "@types/node": "^20.4.2",
+    "aws-cdk": "^2.133.0",
+    "aws-cdk-lib": "^2.133.0",
+    "constructs": "^10.3.0",
+    "esbuild": "^0.20.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
