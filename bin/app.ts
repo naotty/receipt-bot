@@ -6,7 +6,6 @@ import { ReceiptBotStack } from '../lib/receipt-bot-stack';
 // 必要な環境変数の存在確認
 const requiredEnvVars = [
   'S3_BUCKET_NAME',
-  'OPENAI_API_KEY',
   'GOOGLE_SERVICE_ACCOUNT_JSON',
   'SPREADSHEET_ID'
 ];
@@ -24,7 +23,7 @@ new ReceiptBotStack(app, 'ReceiptBotStack', {
     region: process.env.AWS_REGION || 'ap-northeast-1'
   },
   s3BucketName: process.env.S3_BUCKET_NAME!,
-  openaiApiKey: process.env.OPENAI_API_KEY!,
+  bedrockModelId: process.env.BEDROCK_MODEL_ID,
   googleServiceAccountJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
   spreadsheetId: process.env.SPREADSHEET_ID!
 }); 
