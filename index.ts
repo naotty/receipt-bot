@@ -26,14 +26,38 @@ export const handler = async (event: S3Event): Promise<void> => {
 
     const content = email.text || email.html || '';
     console.log('メール本文:', content);
+    console.log('メール件名:', email.subject);
+    console.log('送信者:', email.from?.text);
 
     if (!content.trim()) {
       console.log('メール本文が空です。処理を終了します。');
       return;
     }
 
+    // 送信者チェック
+    const allowedSenders = process.env.ALLOWED_SENDER_EMAILS;
+
+    if (!allowedSenders) {
+      console.log('ALLOWED_SENDER_EMAILSが設定されていないため、処理を終了します。');
+      return;
+    }
+
+    const allowedEmailList = allowedSenders.split(',').map(email => email.trim().toLowerCase());
+    const senderEmail = email.from?.value?.[0]?.address?.toLowerCase();
+    
+    console.log('許可されたメールアドレス:', allowedEmailList);
+    console.log('送信者メールアドレス:', senderEmail);
+    
+    if (!senderEmail || !allowedEmailList.includes(senderEmail)) {
+      console.log(`送信者 ${senderEmail} は許可されていないため、処理を終了します。`);
+      return;
+    }
+    
+    console.log('送信者チェック: 許可されたメールアドレスです。');
+
+
     // AWS Bedrockで金額抽出
-    const modelId = process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-sonnet-20240229-v1:0';
+    const modelId = process.env.BEDROCK_MODEL_ID || 'apac.anthropic.claude-3-5-sonnet-20241022-v2:0';
     const prompt = `メール本文から商品名と金額の情報を抽出してください。商品名がない場合は、サービス名を商品名としてください。以下のJSON形式で返してください：
 
 {

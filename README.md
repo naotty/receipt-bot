@@ -37,7 +37,14 @@ BEDROCK_MODEL_ID=apac.anthropic.claude-3-5-sonnet-20241022-v2:0
 AWS_SECRET_GOOGLE_CREDENTIALS_ID=your-credential-id
 SPREADSHEET_ID=your-google-spreadsheet-id
 SHEET_NAME=your-sheet-name
+ALLOWED_SENDER_EMAILS=user1@example.com,user2@example.com
 ```
+
+### 環境変数の説明
+
+- `ALLOWED_SENDER_EMAILS`: 処理を許可するメールアドレスをカンマ区切りで指定（セキュリティ機能）
+  - 設定しない場合は、すべての送信者からのメールを処理します
+  - 例: `user@example.com,admin@company.com`
 
 ## Google認証情報の設定
 
@@ -130,6 +137,12 @@ npm run deploy
 
 1. SESのルールで設定したメールアドレスに領収書のメールを転送すると、自動的に処理が開始されます
 2. 処理結果は指定したGoogle Spreadsheetsに記録されます（日時、商品名、金額の順）
+
+## セキュリティ機能
+
+- **送信者制限**: `ALLOWED_SENDER_EMAILS` 環境変数で指定したメールアドレスからのメールのみを処理
+- **認証情報保護**: Google認証情報はAWS Secrets Managerで暗号化して保存
+- **IAM権限**: Lambda関数は最小限の権限のみを付与
 
 ## 技術スタック
 
