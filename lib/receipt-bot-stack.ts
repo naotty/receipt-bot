@@ -13,6 +13,7 @@ interface ReceiptBotStackProps extends cdk.StackProps {
   spreadsheetId: string;
   sheetName?: string; 
   awsSecretGoogleCredentialsId?: string;
+  allowedSenderEmails?: string;
 }
 
 export class ReceiptBotStack extends cdk.Stack {
@@ -42,6 +43,7 @@ export class ReceiptBotStack extends cdk.Stack {
         SPREADSHEET_ID: props.spreadsheetId,
         SHEET_NAME: props.sheetName || 'debug',
         AWS_SECRET_GOOGLE_CREDENTIALS_ID: props.awsSecretGoogleCredentialsId || 'credential',
+        ALLOWED_SENDER_EMAILS: props.allowedSenderEmails || '',
       },
     });
 
