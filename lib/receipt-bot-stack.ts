@@ -10,8 +10,9 @@ import * as path from 'path';
 interface ReceiptBotStackProps extends cdk.StackProps {
   s3BucketName: string;
   bedrockModelId?: string;
-  googleServiceAccountJson: string;
   spreadsheetId: string;
+  sheetName?: string; 
+  awsSecretGoogleCredentialsId?: string;
 }
 
 export class ReceiptBotStack extends cdk.Stack {
@@ -38,8 +39,9 @@ export class ReceiptBotStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(60), // Bedrockのレスポンス時間を考慮してタイムアウトを延長
       environment: {
         BEDROCK_MODEL_ID: props.bedrockModelId || 'apac.anthropic.claude-3-5-sonnet-20241022-v2:0',
-        GOOGLE_SERVICE_ACCOUNT_JSON: props.googleServiceAccountJson,
         SPREADSHEET_ID: props.spreadsheetId,
+        SHEET_NAME: props.sheetName || 'debug',
+        AWS_SECRET_GOOGLE_CREDENTIALS_ID: props.awsSecretGoogleCredentialsId || 'credential',
       },
     });
 
@@ -71,6 +73,18 @@ export class ReceiptBotStack extends cdk.Stack {
         `arn:aws:bedrock:us-east-1:${this.account}:inference-profile/*`,
         `arn:aws:bedrock:us-west-2::foundation-model/*`,
         `arn:aws:bedrock:us-west-2:${this.account}:inference-profile/*`
+      ]
+    }));
+
+    // Secrets Managerへのアクセス権限を付与
+    const googleCredentialsSecretId = props.awsSecretGoogleCredentialsId || 'credential';
+    receiptFunction.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'secretsmanager:GetSecretValue'
+      ],
+      resources: [
+        `arn:aws:secretsmanager:${this.region}:${this.account}:secret:${googleCredentialsSecretId}*`
       ]
     }));
 

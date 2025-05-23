@@ -23,7 +23,7 @@
 1. AWS ConsoleでAmazon Bedrockサービスに移動
 2. 左メニューから「Model access」を選択
 3. 「Enable specific models」をクリック
-4. 使用したいモデル（推奨：Claude 3 Sonnet）を選択
+4. 使用したいモデル（推奨：Claude 3.5 Sonnet）を選択
 5. 「Request model access」で申請（通常は即座に承認される）
 
 ## 環境変数の設定
@@ -31,12 +31,59 @@
 `.env`ファイルをプロジェクトルートに作成し、以下の環境変数を設定してください：
 
 ```text
+AWS_REGION=ap-northeast-1
 S3_BUCKET_NAME=your-unique-bucket-name
 BEDROCK_MODEL_ID=apac.anthropic.claude-3-5-sonnet-20241022-v2:0
-GOOGLE_SERVICE_ACCOUNT_JSON={"your":"service-account-json"}
+AWS_SECRET_GOOGLE_CREDENTIALS_ID=your-credential-id
 SPREADSHEET_ID=your-google-spreadsheet-id
-AWS_REGION=ap-northeast-1  # 任意のリージョン
+SHEET_NAME=your-sheet-name
 ```
+
+## Google認証情報の設定
+
+Google Sheets APIを使用するために、サービスアカウントの認証情報をAWS Secrets Managerに保存する必要があります。
+
+### 1. Google Cloud Platformでサービスアカウント作成
+
+1. [Google Cloud Console](https://console.cloud.google.com/)にアクセス
+2. プロジェクトを選択または新規作成
+3. 「APIとサービス」→「認証情報」に移動
+4. 「認証情報を作成」→「サービスアカウント」を選択
+5. サービスアカウント名を入力して作成
+6. 作成したサービスアカウントをクリック
+7. 「キー」タブ→「キーを追加」→「新しいキーを作成」
+8. 「JSON」形式を選択してダウンロード
+
+### 2. Google Sheets APIの有効化
+
+1. Google Cloud Consoleで「APIとサービス」→「ライブラリ」に移動
+2. "Google Sheets API"を検索して有効化
+3. Google Sheetsでサービスアカウントのメールアドレスを共有設定に追加
+
+### 3. AWS Secrets Managerに認証情報を保存
+
+ダウンロードしたJSONファイルをBase64エンコードしてからAWS Secrets Managerに保存します：
+
+```bash
+# JSONファイルをBase64エンコード
+base64 -i path/to/your/service-account-key.json > base64.json
+
+# AWS Secrets Managerにバイナリとして保存
+aws secretsmanager create-secret \
+  --name "your-credential-id" \
+  --description "Google Sheets API用のサービスアカウント認証情報" \
+  --secret-binary fileb://base64.json
+
+# または既存のシークレットを更新する場合
+aws secretsmanager update-secret \
+  --secret-id "your-credential-id" \
+  --secret-binary fileb://base64.json
+```
+
+> **重要**: 
+> - 認証情報はバイナリ形式（Base64エンコード）でSecrets Managerに保存されます。Lambda関数は自動的にデコード処理を行います。
+
+> - `your-credential-id` の部分は任意の名前で、環境変数 `AWS_SECRET_GOOGLE_CREDENTIALS_ID` に設定する値と同じものを使用してください。
 
 ### 利用可能なBedrockモデル（Inference Profile）
 
@@ -82,7 +129,7 @@ npm run deploy
 ## デプロイ後の設定
 
 1. SESのルールで設定したメールアドレスに領収書のメールを転送すると、自動的に処理が開始されます
-2. 処理結果は指定したGoogle Spreadsheetsに記録されます（日時、金額、件名、送信者の順）
+2. 処理結果は指定したGoogle Spreadsheetsに記録されます（日時、商品名、金額の順）
 
 ## 技術スタック
 
@@ -97,14 +144,6 @@ npm run deploy
 ## 注意事項
 
 - S3バケット名は全世界で一意である必要があります
-- 環境変数の`GOOGLE_SERVICE_ACCOUNT_JSON`は、改行を含まない一行のJSON文字列にしてください
 - Google SheetsのスプレッドシートIDは、URLの`spreadsheets/d/`と`/edit`の間の文字列です
 - BedrockのモデルアクセスはAWSリージョンごとに設定が必要です
 - 一部のモデルはクロスリージョン推論のみ対応している場合があります
-
-## コスト効率性
-
-OpenAI APIからAWS Bedrockに移行することで、以下のメリットがあります：
-- Claude 3 SonnetはGPT-4より約68%安価
-- AWSエコシステム内での統合によるデータ転送コストの削減
-- IAMによる細かな権限制御でセキュリティ向上
