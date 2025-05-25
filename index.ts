@@ -2,13 +2,36 @@ import { S3 } from '@aws-sdk/client-s3';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { S3Event } from 'aws-lambda';
-import { simpleParser } from 'mailparser';
+import { simpleParser, ParsedMail } from 'mailparser';
 import { google } from 'googleapis';
+
+interface ExtractedItem {
+  name: string;
+  amount: number;
+}
+
+interface ExtractedData {
+  items: ExtractedItem[];
+  total?: number;
+}
+
+interface GoogleCredentials {
+  type: string;
+  project_id: string;
+  private_key_id: string;
+  private_key: string;
+  client_email: string;
+  client_id: string;
+  auth_uri: string;
+  token_uri: string;
+  auth_provider_x509_cert_url: string;
+  client_x509_cert_url: string;
+}
 
 const s3 = new S3();
 const secretsManager = new SecretsManagerClient({ region: process.env.AWS_REGION });
 const bedrockClient = new BedrockRuntimeClient({ 
-  region: process.env.AWS_REGION // Lambdaランタイムが自動設定
+  region: process.env.AWS_REGION
 });
 
 export const handler = async (event: S3Event): Promise<void> => {
@@ -97,6 +120,7 @@ ${content}`;
     });
 
     console.log(`Bedrockモデル ${modelId} に送信中...`);
+
     const response = await bedrockClient.send(command);
     const responseBody = JSON.parse(new TextDecoder().decode(response.body));
     const extractedText = responseBody.content[0].text.trim();
@@ -105,25 +129,24 @@ ${content}`;
 
     try {
       // JSONレスポンスをパース
-      const extractedData = JSON.parse(extractedText);
+      const extractedData = JSON.parse(extractedText) as ExtractedData;
       console.log('抽出された商品情報:', JSON.stringify(extractedData, null, 2));
 
       if (extractedData.items && extractedData.items.length > 0) {
         console.log(`${extractedData.items.length}件の商品が見つかりました:`);
-        extractedData.items.forEach((item: any, index: number) => {
+        extractedData.items.forEach((item: ExtractedItem, index: number) => {
           console.log(`  ${index + 1}. ${item.name}: ¥${item.amount}`);
         });
         
         if (extractedData.total) {
           console.log(`合計金額: ¥${extractedData.total}`);
         }
+
+        // Google Sheetsに記録
+        await recordToGoogleSheets(extractedData.items, email);
+
       } else {
         console.log('商品情報が見つかりませんでした。');
-      }
-
-      // Google Sheetsに記録
-      if (extractedData.items && extractedData.items.length > 0) {
-        await recordToGoogleSheets(extractedData.items, email);
       }
       
     } catch (parseError) {
@@ -138,7 +161,7 @@ ${content}`;
 };
 
 // Google Sheetsに商品情報を記録する関数
-async function recordToGoogleSheets(items: any[], email: any): Promise<void> {
+async function recordToGoogleSheets(items: ExtractedItem[], email: ParsedMail): Promise<void> {
   try {
     console.log('Google Sheetsに記録を開始...');
     console.log('メール件名:', email.subject);
@@ -169,10 +192,10 @@ async function recordToGoogleSheets(items: any[], email: any): Promise<void> {
     console.log(`現在のデータ行数: ${existingRows.length}, 次の書き込み行: ${nextRowIndex}`);
 
     // 各商品について行を準備
-    const rows: any[][] = [];
+    const rows: (string | number)[][] = [];
     const currentDate = new Date().toLocaleDateString('ja-JP'); // 日本の日付形式
 
-    items.forEach((item: any) => {
+    items.forEach((item: ExtractedItem) => {
       rows.push([
         currentDate, // A列：日付
         item.name || 'サービス', // B列：商品名
@@ -207,7 +230,7 @@ async function recordToGoogleSheets(items: any[], email: any): Promise<void> {
 }
 
 // Google認証情報をSecrets Managerから取得する関数
-async function getGoogleCredentials(): Promise<any> {
+async function getGoogleCredentials(): Promise<GoogleCredentials> {
   try {
     console.log('Secrets ManagerからGoogle認証情報を取得中...');
     
@@ -224,7 +247,7 @@ async function getGoogleCredentials(): Promise<any> {
       throw new Error('Secrets Managerから認証情報を取得できませんでした');
     }
 
-    let credentials: any;
+    let credentials: GoogleCredentials;
     
     // バイナリデータの場合（Base64エンコードされている）
     console.log('バイナリ形式の認証情報を処理中...');
@@ -233,14 +256,14 @@ async function getGoogleCredentials(): Promise<any> {
     
     try {
       // まずそのままJSONパースを試行
-      credentials = JSON.parse(decodedString);
+      credentials = JSON.parse(decodedString) as GoogleCredentials;
     } catch (firstParseError) {
       // JSONパースに失敗した場合、Base64デコードを試行
       console.log('Base64デコードを試行中...');
       const base64DecodedBuffer = Buffer.from(decodedString, 'base64');
       const base64DecodedString = base64DecodedBuffer.toString('utf8');
       console.log('Base64デコード後の文字列の先頭:', base64DecodedString.substring(0, 100));
-      credentials = JSON.parse(base64DecodedString);
+      credentials = JSON.parse(base64DecodedString) as GoogleCredentials;
     }
 
     console.log('Google認証情報の取得が完了しました');
