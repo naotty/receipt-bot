@@ -9,11 +9,11 @@ import * as path from 'path';
 
 interface ReceiptBotStackProps extends cdk.StackProps {
   s3BucketName: string;
-  bedrockModelId?: string;
+  bedrockModelId: string;
   spreadsheetId: string;
-  sheetName?: string; 
-  awsSecretGoogleCredentialsId?: string;
-  allowedSenderEmails?: string;
+  sheetName: string; 
+  awsSecretGoogleCredentialsId: string;
+  allowedSenderEmails: string;
 }
 
 export class ReceiptBotStack extends cdk.Stack {
@@ -39,10 +39,10 @@ export class ReceiptBotStack extends cdk.Stack {
       memorySize: 512, // Bedrockのレスポンス処理のためメモリを増量
       timeout: cdk.Duration.seconds(60), // Bedrockのレスポンス時間を考慮してタイムアウトを延長
       environment: {
-        BEDROCK_MODEL_ID: props.bedrockModelId || 'apac.anthropic.claude-3-5-sonnet-20241022-v2:0',
+        BEDROCK_MODEL_ID: props.bedrockModelId,
         SPREADSHEET_ID: props.spreadsheetId,
-        SHEET_NAME: props.sheetName || 'debug',
-        AWS_SECRET_GOOGLE_CREDENTIALS_ID: props.awsSecretGoogleCredentialsId || 'credential',
+        SHEET_NAME: props.sheetName,
+        AWS_SECRET_GOOGLE_CREDENTIALS_ID: props.awsSecretGoogleCredentialsId,
         ALLOWED_SENDER_EMAILS: props.allowedSenderEmails || '',
       },
     });
@@ -79,7 +79,7 @@ export class ReceiptBotStack extends cdk.Stack {
     }));
 
     // Secrets Managerへのアクセス権限を付与
-    const googleCredentialsSecretId = props.awsSecretGoogleCredentialsId || 'credential';
+    const googleCredentialsSecretId = props.awsSecretGoogleCredentialsId;
     receiptFunction.addToRolePolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
