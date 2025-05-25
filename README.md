@@ -18,6 +18,31 @@
   - CDKでの実装はあとで
 - SESでメール受信できるようにしておく
 
+## 開発
+
+### テスト実行
+
+```bash
+# 全テスト実行
+npm test
+
+# テスト監視モード
+npm run test:watch
+
+# カバレッジ付きテスト
+npm run test:coverage
+```
+
+### ビルド
+
+```bash
+# TypeScriptコンパイル
+npm run build
+
+# 監視モード
+npm run watch
+```
+
 ## AWS Bedrockのモデルアクセス設定
 
 1. AWS ConsoleでAmazon Bedrockサービスに移動
@@ -153,6 +178,7 @@ npm run deploy
 - **データベース**: Google Sheets API
 - **インフラ**: AWS CDK
 - **言語**: TypeScript
+- **テスト**: Jest
 
 ## 注意事項
 
