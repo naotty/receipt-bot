@@ -21,5 +21,14 @@
     "outDir": "dist",
     "esModuleInterop": true
   },
-  "exclude": ["node_modules", "cdk.out", "dist"]
+  "exclude": [
+    "node_modules", 
+    "cdk.out", 
+    "dist",
+    "tests/**/*",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "localstack-init/**/*",
+    "local-dev/**/*"
+  ]
 } 

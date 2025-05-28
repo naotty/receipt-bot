@@ -22,4 +22,11 @@ cdk.context.json
 
 # OS
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Local development
+sample-email.eml
+base64.json
+*.eml
+localstack-data/
+local-dev/ 
