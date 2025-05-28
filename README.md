@@ -43,6 +43,92 @@ npm run build
 npm run watch
 ```
 
+### ローカル開発環境
+
+ローカルでLambda関数をテストするために、LocalStackを使用してAWSサービスをエミュレートできます。
+
+#### 前提条件
+
+- Docker Desktop
+- AWS CLI（LocalStack用のawslocalコマンド）
+
+```bash
+# awslocalコマンドのインストール
+brew install awscli-local
+```
+
+#### セットアップ手順
+
+1. **ローカル環境の起動**
+
+```bash
+# LocalStackとS3バケットを自動セットアップ
+npm run dev:up
+```
+
+2. **サンプルメールのアップロード**
+
+```bash
+# サンプルメールをローカルS3にアップロード
+npm run dev:upload
+```
+
+3. **Lambda関数のテスト実行**
+
+```bash
+# ローカルでLambda関数を実行
+npm run dev:local
+```
+
+4. **ワンコマンドで全実行**
+
+```bash
+# セットアップ → アップロード → 実行を一括で行う
+npm run dev:full
+```
+
+#### ローカル開発用コマンド
+
+```bash
+# LocalStack環境の起動
+npm run dev:up
+
+# LocalStack環境の停止
+npm run dev:down
+
+# サンプルメールのアップロード
+npm run dev:upload
+
+# Lambda関数のローカル実行
+npm run dev:local
+
+# 全工程を一括実行
+npm run dev:full
+```
+
+#### ローカル環境の特徴
+
+- **S3**: LocalStackでエミュレート（http://localhost:4566）
+- **Secrets Manager**: 実際のAWSサービスを使用（Google認証情報のため）
+- **Bedrock**: 実際のAWSサービスを使用（LocalStackでサポートされていないため）
+- **Google Sheets**: 実際のAPIを使用
+
+#### トラブルシューティング
+
+```bash
+# LocalStackのログを確認
+docker logs receipt-bot-localstack
+
+# LocalStackのサービス状態を確認
+curl http://localhost:4566/health
+
+# S3バケットの確認
+awslocal s3 ls
+
+# Secrets Managerのシークレット確認
+awslocal secretsmanager list-secrets
+```
+
 ## AWS Bedrockのモデルアクセス設定
 
 1. AWS ConsoleでAmazon Bedrockサービスに移動
@@ -56,13 +142,22 @@ npm run watch
 `.env`ファイルをプロジェクトルートに作成し、以下の環境変数を設定してください：
 
 ```text
+# AWS
 AWS_REGION=ap-northeast-1
 S3_BUCKET_NAME=your-unique-bucket-name
 BEDROCK_MODEL_ID=apac.anthropic.claude-3-5-sonnet-20241022-v2:0
 AWS_SECRET_GOOGLE_CREDENTIALS_ID=your-credential-id
+
+# Google Sheets
 SPREADSHEET_ID=your-google-spreadsheet-id
 SHEET_NAME=your-sheet-name
+
+# 許可する送信元
 ALLOWED_SENDER_EMAILS=user1@example.com,user2@example.com
+
+# ローカル開発用
+LOCAL_S3_BUCKET=receipt-bot-local
+LOCAL_EMAIL_FILE=sample-email.eml
 ```
 
 ### 環境変数の説明
@@ -179,6 +274,7 @@ npm run deploy
 - **インフラ**: AWS CDK
 - **言語**: TypeScript
 - **テスト**: Jest
+- **ローカル開発**: LocalStack, Docker
 
 ## 注意事項
 
