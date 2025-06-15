@@ -8,6 +8,7 @@ import { google } from 'googleapis';
 interface ExtractedItem {
   name: string;
   amount: number;
+  accountCategory: string;
 }
 
 interface ExtractedData {
@@ -142,21 +143,36 @@ export async function extractDataWithAI(
   modelId: string, 
   bedrockClient: BedrockRuntimeClient
 ): Promise<ExtractedData> {
-  const prompt = `メール本文から商品名と金額の情報を抽出してください。商品名がない場合は、サービス名を商品名としてください。以下のJSON形式で返してください：
+  const prompt = `メール本文から商品名、金額、適切な勘定科目を抽出してください。商品名がない場合は、サービス名を商品名としてください。以下のJSON形式で返してください：
 
 {
   "items": [
     {
       "name": "商品名",
-      "amount": 1000
+      "amount": 1000,
+      "accountCategory": "勘定科目"
     }
   ],
   "total": 1000
 }
 
+勘定科目の分類基準：
+- "交通費": 電車、タクシー、交通系IC、ガソリン、駐車場など
+- "通信費": 携帯電話、インターネット、電話代など
+- "消耗品": 文房具、コピー用紙、USB、電池など
+- "接待交際費": 飲食代、接待、贈答品など
+- "広告宣伝費": 広告費、宣伝費、マーケティング費用など
+- "福利厚生費": 健康診断、保険、社員研修など
+- "水道光熱費": 電気、ガス、水道料金など
+- "地代家賃": 事務所賃料、駐車場代など
+- "修繕費": 設備修理、メンテナンス費用など
+- "雑費": その他、分類できないもの
+
 ルール：
-- 商品名と金額のペアを配列で返す
+- 商品名、金額、勘定科目の組み合わせを配列で返す
 - 金額は数値として返す（カンマなし）
+- 勘定科目は上記の分類から最も適切なものを選択
+- 判断が難しい場合は「雑費」を使用
 - 合計金額がある場合はtotalフィールドに設定
 - 商品や金額が見つからない場合は空の配列を返す
 - JSONのみを返し、他の説明文は含めない
@@ -202,7 +218,7 @@ export function logExtractedData(extractedData: ExtractedData): void {
   if (extractedData.items && extractedData.items.length > 0) {
     console.log(`${extractedData.items.length}件の商品が見つかりました:`);
     extractedData.items.forEach((item: ExtractedItem, index: number) => {
-      console.log(`  ${index + 1}. ${item.name}: ¥${item.amount}`);
+      console.log(`  ${index + 1}. ${item.name}: ¥${item.amount} (${item.accountCategory})`);
     });
     
     if (extractedData.total) {
@@ -233,7 +249,7 @@ export async function recordToGoogleSheets(
     console.log('シートの現在のデータを取得中...');
     const existingDataResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: config.spreadsheetId,
-      range: `${config.sheetName}!A:D`,
+      range: `${config.sheetName}!A:E`,
     });
 
     const existingRows = existingDataResponse.data.values || [];
@@ -246,7 +262,7 @@ export async function recordToGoogleSheets(
     console.log(`${rows.length}行を${config.sheetName}シートの行${nextRowIndex}から追加します:`, rows);
 
     const endRowIndex = nextRowIndex + rows.length - 1;
-    const range = `${config.sheetName}!A${nextRowIndex}:D${endRowIndex}`;
+    const range = `${config.sheetName}!A${nextRowIndex}:E${endRowIndex}`;
     
     const response = await sheets.spreadsheets.values.update({
       spreadsheetId: config.spreadsheetId,
@@ -277,6 +293,7 @@ export function prepareSheetRows(items: ExtractedItem[]): (string | number)[][] 
       item.name || 'サービス', // B列：商品名
       item.amount || 0, // C列：金額
       'クレカ', // D列：支払い方法
+      item.accountCategory || '雑費', // E列：勘定科目
     ]);
   });
 
