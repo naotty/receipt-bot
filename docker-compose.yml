@@ -1,0 +1,28 @@
+services:
+  localstack:
+    container_name: receipt-bot-localstack
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"            # LocalStack Gateway
+      - "4510-4559:4510-4559"  # external services port range
+    environment:
+      - DEBUG=${DEBUG-}
+      - SERVICES=s3,secretsmanager
+      - DATA_DIR=/var/lib/localstack/data
+      - PERSISTENCE=1
+      - SKIP_INFRA_DOWNLOADS=1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - "localstack-data:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "./localstack-init:/etc/localstack/init/ready.d"
+      - "./google-service-account-key.json:/etc/localstack/google-service-account-key.json"
+    networks:
+      - receipt-bot-network
+
+volumes:
+  localstack-data:
+
+networks:
+  receipt-bot-network:
+    driver: bridge 
