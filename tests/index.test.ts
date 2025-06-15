@@ -126,10 +126,10 @@ describe('Receipt Bot Functions', () => {
   });
 
   describe('prepareSheetRows', () => {
-    it('should prepare rows correctly for multiple items', () => {
+    it('should prepare rows correctly for multiple items with account categories', () => {
       const items = [
-        { name: 'Product A', amount: 1000 },
-        { name: 'Product B', amount: 2000 }
+        { name: 'Product A', amount: 1000, accountCategory: '消耗品' },
+        { name: 'Product B', amount: 2000, accountCategory: '交通費' }
       ];
       
       const result = prepareSheetRows(items);
@@ -139,19 +139,21 @@ describe('Receipt Bot Functions', () => {
         expect.any(String), // 日付
         'Product A',
         1000,
-        'クレカ'
+        'クレカ',
+        '消耗品'
       ]);
       expect(result[1]).toEqual([
         expect.any(String), // 日付
         'Product B', 
         2000,
-        'クレカ'
+        'クレカ',
+        '交通費'
       ]);
     });
 
-    it('should handle empty item name', () => {
+    it('should handle empty item name and default account category', () => {
       const items = [
-        { name: '', amount: 1000 }
+        { name: '', amount: 1000, accountCategory: '' }
       ];
       
       const result = prepareSheetRows(items);
@@ -160,13 +162,14 @@ describe('Receipt Bot Functions', () => {
         expect.any(String), // 日付
         'サービス',
         1000,
-        'クレカ'
+        'クレカ',
+        '雑費'
       ]);
     });
 
-    it('should handle zero amount', () => {
+    it('should handle zero amount with account category', () => {
       const items = [
-        { name: 'Free Item', amount: 0 }
+        { name: 'Free Item', amount: 0, accountCategory: '福利厚生費' }
       ];
       
       const result = prepareSheetRows(items);
@@ -175,7 +178,24 @@ describe('Receipt Bot Functions', () => {
         expect.any(String), // 日付
         'Free Item',
         0,
-        'クレカ'
+        'クレカ',
+        '福利厚生費'
+      ]);
+    });
+
+    it('should use default account category when not provided', () => {
+      const items = [
+        { name: 'Test Item', amount: 1000, accountCategory: undefined as any }
+      ];
+      
+      const result = prepareSheetRows(items);
+      
+      expect(result[0]).toEqual([
+        expect.any(String), // 日付
+        'Test Item',
+        1000,
+        'クレカ',
+        '雑費'
       ]);
     });
 
@@ -196,11 +216,11 @@ describe('Receipt Bot Functions', () => {
       consoleSpy.mockRestore();
     });
 
-    it('should log extracted items correctly', () => {
+    it('should log extracted items correctly with account categories', () => {
       const extractedData = {
         items: [
-          { name: 'Product A', amount: 1000 },
-          { name: 'Product B', amount: 2000 }
+          { name: 'Product A', amount: 1000, accountCategory: '消耗品' },
+          { name: 'Product B', amount: 2000, accountCategory: '交通費' }
         ],
         total: 3000
       };
@@ -208,22 +228,22 @@ describe('Receipt Bot Functions', () => {
       logExtractedData(extractedData);
       
       expect(consoleSpy).toHaveBeenCalledWith('2件の商品が見つかりました:');
-      expect(consoleSpy).toHaveBeenCalledWith('  1. Product A: ¥1000');
-      expect(consoleSpy).toHaveBeenCalledWith('  2. Product B: ¥2000');
+      expect(consoleSpy).toHaveBeenCalledWith('  1. Product A: ¥1000 (消耗品)');
+      expect(consoleSpy).toHaveBeenCalledWith('  2. Product B: ¥2000 (交通費)');
       expect(consoleSpy).toHaveBeenCalledWith('合計金額: ¥3000');
     });
 
     it('should not log total when not provided', () => {
       const extractedData = {
         items: [
-          { name: 'Product A', amount: 1000 }
+          { name: 'Product A', amount: 1000, accountCategory: '雑費' }
         ]
       };
       
       logExtractedData(extractedData);
       
       expect(consoleSpy).toHaveBeenCalledWith('1件の商品が見つかりました:');
-      expect(consoleSpy).toHaveBeenCalledWith('  1. Product A: ¥1000');
+      expect(consoleSpy).toHaveBeenCalledWith('  1. Product A: ¥1000 (雑費)');
       expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('合計金額'));
     });
 
@@ -239,13 +259,13 @@ describe('Receipt Bot Functions', () => {
   });
 
   describe('extractDataWithAI', () => {
-    it('should extract data successfully', async () => {
+    it('should extract data successfully with account category', async () => {
       const mockBedrockClient = {
         send: jest.fn().mockResolvedValue({
           body: new TextEncoder().encode(JSON.stringify({
             content: [{
               text: JSON.stringify({
-                items: [{ name: 'Test Product', amount: 1000 }],
+                items: [{ name: 'Test Product', amount: 1000, accountCategory: '消耗品' }],
                 total: 1000
               })
             }]
@@ -256,7 +276,7 @@ describe('Receipt Bot Functions', () => {
       const result = await extractDataWithAI('test content', 'test-model', mockBedrockClient);
 
       expect(result).toEqual({
-        items: [{ name: 'Test Product', amount: 1000 }],
+        items: [{ name: 'Test Product', amount: 1000, accountCategory: '消耗品' }],
         total: 1000
       });
     });
@@ -275,6 +295,60 @@ describe('Receipt Bot Functions', () => {
       const result = await extractDataWithAI('test content', 'test-model', mockBedrockClient);
 
       expect(result).toEqual({ items: [] });
+    });
+
+    it('should extract multiple items with different account categories', async () => {
+      const mockBedrockClient = {
+        send: jest.fn().mockResolvedValue({
+          body: new TextEncoder().encode(JSON.stringify({
+            content: [{
+              text: JSON.stringify({
+                items: [
+                  { name: '電車代', amount: 500, accountCategory: '交通費' },
+                  { name: 'ボールペン', amount: 200, accountCategory: '消耗品' },
+                  { name: '携帯料金', amount: 3000, accountCategory: '通信費' }
+                ],
+                total: 3700
+              })
+            }]
+          }))
+        })
+      } as any;
+
+      const result = await extractDataWithAI('交通費と事務用品の購入', 'test-model', mockBedrockClient);
+
+      expect(result).toEqual({
+        items: [
+          { name: '電車代', amount: 500, accountCategory: '交通費' },
+          { name: 'ボールペン', amount: 200, accountCategory: '消耗品' },
+          { name: '携帯料金', amount: 3000, accountCategory: '通信費' }
+        ],
+        total: 3700
+      });
+    });
+
+    it('should handle items with default account category when AI returns empty category', async () => {
+      const mockBedrockClient = {
+        send: jest.fn().mockResolvedValue({
+          body: new TextEncoder().encode(JSON.stringify({
+            content: [{
+              text: JSON.stringify({
+                items: [
+                  { name: '不明な費用', amount: 1000, accountCategory: '' }
+                ],
+                total: 1000
+              })
+            }]
+          }))
+        })
+      } as any;
+
+      const result = await extractDataWithAI('不明な費用', 'test-model', mockBedrockClient);
+
+      expect(result.items[0].accountCategory).toBe('');
+      // prepareSheetRowsでデフォルト値「雑費」が設定されることをテスト
+      const sheetRows = prepareSheetRows(result.items);
+      expect(sheetRows[0][4]).toBe('雑費');
     });
   });
 
@@ -339,6 +413,81 @@ describe('Receipt Bot Functions', () => {
 
       await expect(getGoogleCredentials('test-secret', mockSecretsManager))
         .rejects.toThrow('Secrets Managerから認証情報を取得できませんでした');
+    });
+  });
+
+  describe('Account Category Classification', () => {
+    it('should correctly classify transportation expenses', async () => {
+      const mockBedrockClient = {
+        send: jest.fn().mockResolvedValue({
+          body: new TextEncoder().encode(JSON.stringify({
+            content: [{
+              text: JSON.stringify({
+                items: [
+                  { name: 'JR東日本 電車代', amount: 500, accountCategory: '交通費' },
+                  { name: 'タクシー代', amount: 1200, accountCategory: '交通費' },
+                  { name: 'ガソリン代', amount: 3000, accountCategory: '交通費' }
+                ]
+              })
+            }]
+          }))
+        })
+      } as any;
+
+      const result = await extractDataWithAI('交通費の領収書', 'test-model', mockBedrockClient);
+
+      result.items.forEach(item => {
+        expect(item.accountCategory).toBe('交通費');
+      });
+    });
+
+    it('should correctly classify office supplies', async () => {
+      const mockBedrockClient = {
+        send: jest.fn().mockResolvedValue({
+          body: new TextEncoder().encode(JSON.stringify({
+            content: [{
+              text: JSON.stringify({
+                items: [
+                  { name: 'ボールペン', amount: 100, accountCategory: '消耗品' },
+                  { name: 'コピー用紙', amount: 500, accountCategory: '消耗品' },
+                  { name: 'USB メモリ', amount: 1500, accountCategory: '消耗品' }
+                ]
+              })
+            }]
+          }))
+        })
+      } as any;
+
+      const result = await extractDataWithAI('事務用品の購入', 'test-model', mockBedrockClient);
+
+      result.items.forEach(item => {
+        expect(item.accountCategory).toBe('消耗品');
+      });
+    });
+
+    it('should use 雑費 as fallback category', () => {
+      const items = [
+        { name: '不明な費用', amount: 1000, accountCategory: undefined as any },
+        { name: '分類不能', amount: 500, accountCategory: '' }
+      ];
+
+      const result = prepareSheetRows(items);
+
+      expect(result[0][4]).toBe('雑費');
+      expect(result[1][4]).toBe('雑費');
+    });
+
+    it('should preserve all supported account categories', () => {
+      const supportedCategories = [
+        '交通費', '通信費', '消耗品', '接待交際費', '広告宣伝費',
+        '福利厚生費', '水道光熱費', '地代家賃', '修繕費', '雑費'
+      ];
+
+      supportedCategories.forEach(category => {
+        const items = [{ name: 'テスト項目', amount: 1000, accountCategory: category }];
+        const result = prepareSheetRows(items);
+        expect(result[0][4]).toBe(category);
+      });
     });
   });
 }); 
