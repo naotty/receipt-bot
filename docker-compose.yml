@@ -16,6 +16,7 @@ services:
       - "localstack-data:/var/lib/localstack"
       - "/var/run/docker.sock:/var/run/docker.sock"
       - "./localstack-init:/etc/localstack/init/ready.d"
+      - "./google-service-account-key.json:/etc/localstack/google-service-account-key.json"
     networks:
       - receipt-bot-network
 

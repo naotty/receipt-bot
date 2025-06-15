@@ -29,4 +29,5 @@ sample-email.eml
 base64.json
 *.eml
 localstack-data/
+google-service-account-key.json
 local-dev/ 

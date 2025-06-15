@@ -59,28 +59,37 @@ brew install awscli-local
 
 #### セットアップ手順
 
-1. **ローカル環境の起動**
+1. **Google認証情報の配置（必須）**
+
+LocalStack環境を使用するには、Google認証情報ファイルが必要です：
 
 ```bash
-# LocalStackとS3バケットを自動セットアップ
+# Google認証情報のJSONファイルをプロジェクトルートに配置
+cp path/to/your/service-account-key.json google-service-account-key.json
+```
+
+2. **ローカル環境の起動**
+
+```bash
+# docker-compose up、LocalStackとS3バケット、Secrets Managerを自動セットアップ
 npm run dev:up
 ```
 
-2. **サンプルメールのアップロード**
+3. **サンプルメールのアップロード**
 
 ```bash
 # サンプルメールをローカルS3にアップロード
 npm run dev:upload
 ```
 
-3. **Lambda関数のテスト実行**
+4. **Lambda関数のテスト実行**
 
 ```bash
 # ローカルでLambda関数を実行
 npm run dev:local
 ```
 
-4. **ワンコマンドで全実行**
+5. **ワンコマンドで全実行**
 
 ```bash
 # セットアップ → アップロード → 実行を一括で行う
@@ -109,9 +118,18 @@ npm run dev:full
 #### ローカル環境の特徴
 
 - **S3**: LocalStackでエミュレート（http://localhost:4566）
-- **Secrets Manager**: 実際のAWSサービスを使用（Google認証情報のため）
+- **Secrets Manager**: LocalStackでエミュレート（http://localhost:4566、AWS側と同じBase64バイナリ形式）
 - **Bedrock**: 実際のAWSサービスを使用（LocalStackでサポートされていないため）
 - **Google Sheets**: 実際のAPIを使用
+
+#### 前提条件
+
+LocalStack環境を使用するには、以下が必要です：
+
+- **Google認証情報ファイル**: `google-service-account-key.json`をプロジェクトルートに配置
+- **Google Sheets API**: 使用する認証情報でGoogle Sheets APIが有効になっている必要があります
+
+> **重要**: `google-service-account-key.json`ファイルは自動的に`.gitignore`に含まれているため、誤ってコミットされることはありません。
 
 #### トラブルシューティング
 
@@ -125,8 +143,17 @@ curl http://localhost:4566/health
 # S3バケットの確認
 awslocal s3 ls
 
-# Secrets Managerのシークレット確認
+# Secrets Managerのシークレット一覧確認
 awslocal secretsmanager list-secrets
+
+# Secrets Managerの内容確認（全体）
+awslocal secretsmanager get-secret-value --secret-id local-google-credentials
+
+# Secrets Managerの値をバイナリから文字列として取得
+awslocal secretsmanager get-secret-value --secret-id local-google-credentials --query SecretBinary --output text | base64 -d
+
+# JSON形式で整形して表示
+awslocal secretsmanager get-secret-value --secret-id local-google-credentials --query SecretBinary --output text | base64 -d | jq .
 ```
 
 ## AWS Bedrockのモデルアクセス設定
@@ -158,6 +185,7 @@ ALLOWED_SENDER_EMAILS=user1@example.com,user2@example.com
 # ローカル開発用
 LOCAL_S3_BUCKET=receipt-bot-local
 LOCAL_EMAIL_FILE=sample-email.eml
+LOCAL_GOOGLE_CREDENTIALS_SECRET_ID=local-google-credentials
 ```
 
 ### 環境変数の説明
@@ -165,6 +193,8 @@ LOCAL_EMAIL_FILE=sample-email.eml
 - `ALLOWED_SENDER_EMAILS`: 処理を許可するメールアドレスをカンマ区切りで指定（セキュリティ機能）
   - 設定しない場合は、すべての送信者からのメールを処理します
   - 例: `user@example.com,admin@company.com`
+- `LOCAL_GOOGLE_CREDENTIALS_SECRET_ID`: ローカル開発で使用するSecrets ManagerのシークレットID
+  - デフォルト: `local-google-credentials`
 
 ## Google認証情報の設定
 
@@ -282,3 +312,4 @@ npm run deploy
 - Google SheetsのスプレッドシートIDは、URLの`spreadsheets/d/`と`/edit`の間の文字列です
 - BedrockのモデルアクセスはAWSリージョンごとに設定が必要です
 - 一部のモデルはクロスリージョン推論のみ対応している場合があります
+- **ローカル開発には`google-service-account-key.json`ファイルが必須です**
