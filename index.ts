@@ -9,6 +9,7 @@ interface ExtractedItem {
   name: string;
   amount: number;
   accountCategory: string;
+  paymentMethod?: string;
 }
 
 interface ExtractedData {
@@ -143,18 +144,28 @@ export async function extractDataWithAI(
   modelId: string, 
   bedrockClient: BedrockRuntimeClient
 ): Promise<ExtractedData> {
-  const prompt = `メール本文から商品名、金額、適切な勘定科目を抽出してください。商品名がない場合は、サービス名を商品名としてください。以下のJSON形式で返してください：
+  const prompt = `メール本文から商品名、金額、支払い方法、適切な勘定科目を抽出してください。商品名がない場合は、サービス名を商品名としてください。以下のJSON形式で返してください：
 
 {
   "items": [
     {
       "name": "商品名",
       "amount": 1000,
+      "paymentMethod": "支払い方法",
       "accountCategory": "勘定科目"
     }
   ],
   "total": 1000
 }
+
+支払い方法の分類基準：
+- "クレカ": クレジットカード決済
+- "現金": 現金支払い
+- "デビット": デビットカード決済
+- "電子マネー": Suica、PASMO、nanaco、WAONなど
+- "QR決済": PayPay、LINE Pay、楽天ペイ、d払いなど
+- "銀行振込": 銀行振込・口座振替
+- "その他": 上記以外の支払い方法
 
 勘定科目の分類基準：
 - "交通費": 電車、タクシー、交通系IC、ガソリン、駐車場など
@@ -169,8 +180,9 @@ export async function extractDataWithAI(
 - "雑費": その他、分類できないもの
 
 ルール：
-- 商品名、金額、勘定科目の組み合わせを配列で返す
+- 商品名、金額、支払い方法、勘定科目の組み合わせを配列で返す
 - 金額は数値として返す（カンマなし）
+- 支払い方法が明記されていない場合は「クレカ」を使用
 - 勘定科目は上記の分類から最も適切なものを選択
 - 判断が難しい場合は「雑費」を使用
 - 合計金額がある場合はtotalフィールドに設定
@@ -218,7 +230,7 @@ export function logExtractedData(extractedData: ExtractedData): void {
   if (extractedData.items && extractedData.items.length > 0) {
     console.log(`${extractedData.items.length}件の商品が見つかりました:`);
     extractedData.items.forEach((item: ExtractedItem, index: number) => {
-      console.log(`  ${index + 1}. ${item.name}: ¥${item.amount} (${item.accountCategory})`);
+      console.log(`  ${index + 1}. ${item.name}: ¥${item.amount} (${item.accountCategory}) [${item.paymentMethod || 'クレカ'}]`);
     });
     
     if (extractedData.total) {
@@ -292,7 +304,7 @@ export function prepareSheetRows(items: ExtractedItem[]): (string | number)[][] 
       currentDate, // A列：日付
       item.name || 'サービス', // B列：商品名
       item.amount || 0, // C列：金額
-      'クレカ', // D列：支払い方法
+      item.paymentMethod || 'クレカ', // D列：支払い方法
       item.accountCategory || '雑費', // E列：勘定科目
     ]);
   });
