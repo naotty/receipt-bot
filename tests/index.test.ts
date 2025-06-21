@@ -151,6 +151,51 @@ describe('Receipt Bot Functions', () => {
       ]);
     });
 
+    it('should prepare rows correctly with payment methods', () => {
+      const items = [
+        { name: 'コーヒー', amount: 500, accountCategory: '接待交際費', paymentMethod: '現金' },
+        { name: '電車代', amount: 300, accountCategory: '交通費', paymentMethod: '電子マネー' },
+        { name: 'ランチ', amount: 1200, accountCategory: '接待交際費', paymentMethod: 'QR決済' }
+      ];
+      
+      const result = prepareSheetRows(items);
+      
+      expect(result).toHaveLength(3);
+      expect(result[0]).toEqual([
+        expect.any(String), // 日付
+        'コーヒー',
+        500,
+        '現金',
+        '接待交際費'
+      ]);
+      expect(result[1]).toEqual([
+        expect.any(String), // 日付
+        '電車代',
+        300,
+        '電子マネー',
+        '交通費'
+      ]);
+      expect(result[2]).toEqual([
+        expect.any(String), // 日付
+        'ランチ',
+        1200,
+        'QR決済',
+        '接待交際費'
+      ]);
+    });
+
+    it('should use default payment method when not provided', () => {
+      const items = [
+        { name: 'Product A', amount: 1000, accountCategory: '消耗品' },
+        { name: 'Product B', amount: 2000, accountCategory: '交通費', paymentMethod: undefined }
+      ];
+      
+      const result = prepareSheetRows(items);
+      
+      expect(result[0][3]).toBe('クレカ');
+      expect(result[1][3]).toBe('クレカ');
+    });
+
     it('should handle empty item name and default account category', () => {
       const items = [
         { name: '', amount: 1000, accountCategory: '' }
@@ -228,9 +273,26 @@ describe('Receipt Bot Functions', () => {
       logExtractedData(extractedData);
       
       expect(consoleSpy).toHaveBeenCalledWith('2件の商品が見つかりました:');
-      expect(consoleSpy).toHaveBeenCalledWith('  1. Product A: ¥1000 (消耗品)');
-      expect(consoleSpy).toHaveBeenCalledWith('  2. Product B: ¥2000 (交通費)');
+      expect(consoleSpy).toHaveBeenCalledWith('  1. Product A: ¥1000 (消耗品) [クレカ]');
+      expect(consoleSpy).toHaveBeenCalledWith('  2. Product B: ¥2000 (交通費) [クレカ]');
       expect(consoleSpy).toHaveBeenCalledWith('合計金額: ¥3000');
+    });
+
+    it('should log extracted items with payment methods', () => {
+      const extractedData = {
+        items: [
+          { name: 'コーヒー', amount: 500, accountCategory: '接待交際費', paymentMethod: '現金' },
+          { name: '電車代', amount: 300, accountCategory: '交通費', paymentMethod: '電子マネー' }
+        ],
+        total: 800
+      };
+      
+      logExtractedData(extractedData);
+      
+      expect(consoleSpy).toHaveBeenCalledWith('2件の商品が見つかりました:');
+      expect(consoleSpy).toHaveBeenCalledWith('  1. コーヒー: ¥500 (接待交際費) [現金]');
+      expect(consoleSpy).toHaveBeenCalledWith('  2. 電車代: ¥300 (交通費) [電子マネー]');
+      expect(consoleSpy).toHaveBeenCalledWith('合計金額: ¥800');
     });
 
     it('should not log total when not provided', () => {
@@ -243,7 +305,7 @@ describe('Receipt Bot Functions', () => {
       logExtractedData(extractedData);
       
       expect(consoleSpy).toHaveBeenCalledWith('1件の商品が見つかりました:');
-      expect(consoleSpy).toHaveBeenCalledWith('  1. Product A: ¥1000 (雑費)');
+      expect(consoleSpy).toHaveBeenCalledWith('  1. Product A: ¥1000 (雑費) [クレカ]');
       expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('合計金額'));
     });
 
@@ -278,6 +340,34 @@ describe('Receipt Bot Functions', () => {
       expect(result).toEqual({
         items: [{ name: 'Test Product', amount: 1000, accountCategory: '消耗品' }],
         total: 1000
+      });
+    });
+
+    it('should extract data with payment methods', async () => {
+      const mockBedrockClient = {
+        send: jest.fn().mockResolvedValue({
+          body: new TextEncoder().encode(JSON.stringify({
+            content: [{
+              text: JSON.stringify({
+                items: [
+                  { name: 'コーヒー', amount: 500, paymentMethod: '現金', accountCategory: '接待交際費' },
+                  { name: '電車代', amount: 300, paymentMethod: '電子マネー', accountCategory: '交通費' }
+                ],
+                total: 800
+              })
+            }]
+          }))
+        })
+      } as any;
+
+      const result = await extractDataWithAI('現金でコーヒーを買い、Suicaで電車に乗った', 'test-model', mockBedrockClient);
+
+      expect(result).toEqual({
+        items: [
+          { name: 'コーヒー', amount: 500, paymentMethod: '現金', accountCategory: '接待交際費' },
+          { name: '電車代', amount: 300, paymentMethod: '電子マネー', accountCategory: '交通費' }
+        ],
+        total: 800
       });
     });
 
@@ -413,6 +503,151 @@ describe('Receipt Bot Functions', () => {
 
       await expect(getGoogleCredentials('test-secret', mockSecretsManager))
         .rejects.toThrow('Secrets Managerから認証情報を取得できませんでした');
+    });
+  });
+
+  describe('Payment Method Classification', () => {
+    it('should correctly classify credit card payments', async () => {
+      const mockBedrockClient = {
+        send: jest.fn().mockResolvedValue({
+          body: new TextEncoder().encode(JSON.stringify({
+            content: [{
+              text: JSON.stringify({
+                items: [
+                  { name: 'オンライン購入', amount: 5000, paymentMethod: 'クレカ', accountCategory: '消耗品' },
+                  { name: '月額サービス', amount: 1000, paymentMethod: 'クレカ', accountCategory: '通信費' }
+                ]
+              })
+            }]
+          }))
+        })
+      } as any;
+
+      const result = await extractDataWithAI('クレジットカードで支払い', 'test-model', mockBedrockClient);
+
+      result.items.forEach(item => {
+        expect(item.paymentMethod).toBe('クレカ');
+      });
+    });
+
+    it('should correctly classify cash payments', async () => {
+      const mockBedrockClient = {
+        send: jest.fn().mockResolvedValue({
+          body: new TextEncoder().encode(JSON.stringify({
+            content: [{
+              text: JSON.stringify({
+                items: [
+                  { name: 'コーヒー', amount: 300, paymentMethod: '現金', accountCategory: '接待交際費' },
+                  { name: '駐車場代', amount: 500, paymentMethod: '現金', accountCategory: '交通費' }
+                ]
+              })
+            }]
+          }))
+        })
+      } as any;
+
+      const result = await extractDataWithAI('現金で支払い', 'test-model', mockBedrockClient);
+
+      result.items.forEach(item => {
+        expect(item.paymentMethod).toBe('現金');
+      });
+    });
+
+    it('should correctly classify electronic money payments', async () => {
+      const mockBedrockClient = {
+        send: jest.fn().mockResolvedValue({
+          body: new TextEncoder().encode(JSON.stringify({
+            content: [{
+              text: JSON.stringify({
+                items: [
+                  { name: '電車代', amount: 200, paymentMethod: '電子マネー', accountCategory: '交通費' },
+                  { name: 'コンビニ購入', amount: 800, paymentMethod: '電子マネー', accountCategory: '雑費' }
+                ]
+              })
+            }]
+          }))
+        })
+      } as any;
+
+      const result = await extractDataWithAI('Suicaで支払い', 'test-model', mockBedrockClient);
+
+      result.items.forEach(item => {
+        expect(item.paymentMethod).toBe('電子マネー');
+      });
+    });
+
+    it('should correctly classify QR payments', async () => {
+      const mockBedrockClient = {
+        send: jest.fn().mockResolvedValue({
+          body: new TextEncoder().encode(JSON.stringify({
+            content: [{
+              text: JSON.stringify({
+                items: [
+                  { name: 'ランチ', amount: 1200, paymentMethod: 'QR決済', accountCategory: '接待交際費' },
+                  { name: 'タクシー代', amount: 1500, paymentMethod: 'QR決済', accountCategory: '交通費' }
+                ]
+              })
+            }]
+          }))
+        })
+      } as any;
+
+      const result = await extractDataWithAI('PayPayで支払い', 'test-model', mockBedrockClient);
+
+      result.items.forEach(item => {
+        expect(item.paymentMethod).toBe('QR決済');
+      });
+    });
+
+    it('should use クレカ as default payment method', () => {
+      const items = [
+        { name: '不明な支払い', amount: 1000, accountCategory: '雑費', paymentMethod: undefined },
+        { name: '支払い方法なし', amount: 500, accountCategory: '雑費' }
+      ];
+
+      const result = prepareSheetRows(items);
+
+      expect(result[0][3]).toBe('クレカ');
+      expect(result[1][3]).toBe('クレカ');
+    });
+
+    it('should preserve all supported payment methods', () => {
+      const supportedPaymentMethods = [
+        'クレカ', '現金', 'デビット', '電子マネー', 'QR決済', '銀行振込', 'その他'
+      ];
+
+      supportedPaymentMethods.forEach(paymentMethod => {
+        const items = [{ name: 'テスト項目', amount: 1000, accountCategory: '雑費', paymentMethod }];
+        const result = prepareSheetRows(items);
+        expect(result[0][3]).toBe(paymentMethod);
+      });
+    });
+
+    it('should handle mixed payment methods in single extraction', async () => {
+      const mockBedrockClient = {
+        send: jest.fn().mockResolvedValue({
+          body: new TextEncoder().encode(JSON.stringify({
+            content: [{
+              text: JSON.stringify({
+                items: [
+                  { name: 'コーヒー', amount: 300, paymentMethod: '現金', accountCategory: '接待交際費' },
+                  { name: '電車代', amount: 200, paymentMethod: '電子マネー', accountCategory: '交通費' },
+                  { name: 'ランチ', amount: 1200, paymentMethod: 'QR決済', accountCategory: '接待交際費' },
+                  { name: 'ネット購入', amount: 2500, paymentMethod: 'クレカ', accountCategory: '消耗品' }
+                ],
+                total: 4200
+              })
+            }]
+          }))
+        })
+      } as any;
+
+      const result = await extractDataWithAI('様々な支払い方法での購入', 'test-model', mockBedrockClient);
+
+      expect(result.items[0].paymentMethod).toBe('現金');
+      expect(result.items[1].paymentMethod).toBe('電子マネー');
+      expect(result.items[2].paymentMethod).toBe('QR決済');
+      expect(result.items[3].paymentMethod).toBe('クレカ');
     });
   });
 
