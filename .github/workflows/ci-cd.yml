@@ -3,8 +3,6 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ main, develop, feature/9-add-ci-cd-in-github-action ]
-  pull_request:
-    branches: [ main, develop, feature/9-add-ci-cd-in-github-action ]
 
 permissions:
   id-token: write
