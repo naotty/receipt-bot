@@ -1,0 +1,178 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, feature/9-add-ci-cd-in-github-action ]
+  pull_request:
+    branches: [ main, develop, feature/9-add-ci-cd-in-github-action ]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        
+    - name: Cache node_modules
+      id: cache-node-modules
+      uses: actions/cache@v4
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-modules-
+        
+    - name: Cache TypeScript incremental build
+      id: cache-ts-build
+      uses: actions/cache@v4
+      with:
+        path: |
+          .tsbuildinfo
+        key: ${{ runner.os }}-ts-incremental-${{ hashFiles('package-lock.json') }}-${{ hashFiles('**/*.ts', '**/*.tsx', 'tsconfig.json') }}
+        restore-keys: |
+          ${{ runner.os }}-ts-incremental-
+        
+    - name: Install dependencies
+      if: steps.cache-node-modules.outputs.cache-hit != 'true'
+      run: npm ci
+      
+    - name: TypeScript check
+      run: npx tsc --noEmit
+      
+    - name: Run tests
+      run: npm test
+      
+    - name: Run tests with coverage
+      run: npm run test:coverage
+      
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+        
+    - name: Archive coverage reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-reports
+        path: coverage/
+        retention-days: 30
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        
+    - name: Cache node_modules
+      id: cache-node-modules
+      uses: actions/cache@v4
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-modules-
+        
+    - name: Cache TypeScript incremental build
+      id: cache-ts-build
+      uses: actions/cache@v4
+      with:
+        path: |
+          .tsbuildinfo
+        key: ${{ runner.os }}-ts-incremental-${{ hashFiles('package-lock.json') }}-${{ hashFiles('**/*.ts', '**/*.tsx', 'tsconfig.json') }}
+        restore-keys: |
+          ${{ runner.os }}-ts-incremental-
+          
+    - name: Cache CDK assets
+      id: cache-cdk-assets
+      uses: actions/cache@v4
+      with:
+        path: |
+          cdk.out/
+          .cdk.staging/
+        key: ${{ runner.os }}-cdk-${{ hashFiles('lib/**/*.ts', 'cdk.json', 'package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-cdk-
+        
+    - name: Install dependencies
+      if: steps.cache-node-modules.outputs.cache-hit != 'true'
+      run: npm ci
+      
+    - name: Build project
+      if: steps.cache-ts-build.outputs.cache-hit != 'true'
+      run: npm run build
+      
+    - name: CDK synth
+      if: steps.cache-cdk-assets.outputs.cache-hit != 'true'
+      run: npx cdk synth
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        
+    - name: Cache node_modules
+      id: cache-node-modules
+      uses: actions/cache@v4
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-modules-
+        
+    - name: Cache CDK assets
+      uses: actions/cache@v4
+      with:
+        path: |
+          cdk.out/
+          .cdk.staging/
+        key: ${{ runner.os }}-cdk-${{ hashFiles('lib/**/*.ts', 'cdk.json') }}
+        restore-keys: |
+          ${{ runner.os }}-cdk-
+        
+    - name: Install dependencies
+      if: steps.cache-node-modules.outputs.cache-hit != 'true'
+      run: npm ci
+      
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN_PRODUCTION }}
+        aws-region: ${{ secrets.AWS_REGION }}
+        
+    - name: CDK bootstrap (if needed)
+      run: npx cdk bootstrap
+      
+    - name: Deploy to production
+      run: npm run deploy -- --context env=production 

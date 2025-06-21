@@ -5,6 +5,8 @@
     "lib": ["es2020"],
     "declaration": true,
     "strict": true,
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo",
     "noImplicitAny": true,
     "strictNullChecks": true,
     "noImplicitThis": true,
