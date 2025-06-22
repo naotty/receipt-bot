@@ -8,6 +8,15 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+  BEDROCK_MODEL_ID: ${{ secrets.BEDROCK_MODEL_ID }}
+  AWS_SECRET_GOOGLE_CREDENTIALS_ID: ${{ secrets.AWS_SECRET_GOOGLE_CREDENTIALS_ID }}
+  SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+  SHEET_NAME: ${{ secrets.SHEET_NAME }}
+  ALLOWED_SENDER_EMAILS: ${{ secrets.ALLOWED_SENDER_EMAILS }}
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -167,7 +176,7 @@ jobs:
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN_PRODUCTION }}
-        aws-region: ${{ secrets.AWS_REGION }}
+        aws-region: ${{ env.AWS_REGION }}
       
     - name: Deploy to production
       run: npm run deploy -- --context env=production 
