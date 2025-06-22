@@ -72,7 +72,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/feature/9-add-ci-cd-in-github-action' && github.event_name == 'push'
     
     steps:
     - name: Checkout code
@@ -128,7 +128,7 @@ jobs:
   deploy-production:
     runs-on: ubuntu-latest
     needs: [test, build]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/9-add-ci-cd-in-github-action' && github.event_name == 'push'
     environment: production
     
     steps:
@@ -168,9 +168,6 @@ jobs:
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN_PRODUCTION }}
         aws-region: ${{ secrets.AWS_REGION }}
-        
-    - name: CDK bootstrap (if needed)
-      run: npx cdk bootstrap
       
     - name: Deploy to production
       run: npm run deploy -- --context env=production 
