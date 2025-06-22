@@ -195,6 +195,10 @@ jobs:
       if: steps.cache-node-modules.outputs.cache-hit != 'true'
       run: npm ci
       
+    - name: CDK synth
+      if: steps.cache-cdk-assets.outputs.cache-hit != 'true'
+      run: npx cdk synth
+      
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
