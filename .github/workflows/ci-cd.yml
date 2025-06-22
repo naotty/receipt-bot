@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop, feature/9-add-ci-cd-in-github-action ]
+    branches: [ main, feature/9-add-ci-cd-in-github-action ]
 
 permissions:
   id-token: write
@@ -137,7 +137,7 @@ jobs:
   deploy-production:
     runs-on: ubuntu-latest
     needs: [test, build]
-    if: github.ref == 'refs/heads/9-add-ci-cd-in-github-action' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/feature/9-add-ci-cd-in-github-action' && github.event_name == 'push'
     environment: production
     
     steps:
