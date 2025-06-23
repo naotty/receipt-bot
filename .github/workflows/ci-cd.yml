@@ -133,28 +133,15 @@ jobs:
         key: ${{ runner.os }}-ts-incremental-${{ hashFiles('package-lock.json') }}-${{ hashFiles('**/*.ts', '**/*.tsx', 'tsconfig.json') }}
         restore-keys: |
           ${{ runner.os }}-ts-incremental-
-          
-    - name: Cache CDK assets
-      id: cache-cdk-assets
-      uses: actions/cache@v4
-      with:
-        path: |
-          cdk.out/
-          .cdk.staging/
-        key: ${{ runner.os }}-cdk-${{ hashFiles('lib/**/*.ts', 'cdk.json', 'package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-cdk-
         
     - name: Install dependencies
       if: steps.cache-node-modules.outputs.cache-hit != 'true'
       run: npm ci
       
     - name: Build project
-      if: steps.cache-ts-build.outputs.cache-hit != 'true'
       run: npm run build
       
     - name: CDK synth
-      if: steps.cache-cdk-assets.outputs.cache-hit != 'true'
       run: npx cdk synth
 
   deploy-production:
@@ -181,22 +168,11 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-node-modules-
         
-    - name: Cache CDK assets
-      uses: actions/cache@v4
-      with:
-        path: |
-          cdk.out/
-          .cdk.staging/
-        key: ${{ runner.os }}-cdk-${{ hashFiles('lib/**/*.ts', 'cdk.json', 'package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-cdk-
-        
     - name: Install dependencies
       if: steps.cache-node-modules.outputs.cache-hit != 'true'
       run: npm ci
       
     - name: CDK synth
-      if: steps.cache-cdk-assets.outputs.cache-hit != 'true'
       run: npx cdk synth
       
     - name: Configure AWS credentials
