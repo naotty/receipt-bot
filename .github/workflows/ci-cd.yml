@@ -150,11 +150,9 @@ jobs:
       run: npm ci
       
     - name: Build project
-      if: steps.cache-ts-build.outputs.cache-hit != 'true'
       run: npm run build
       
     - name: CDK synth
-      if: steps.cache-cdk-assets.outputs.cache-hit != 'true'
       run: npx cdk synth
 
   deploy-production:
@@ -196,7 +194,6 @@ jobs:
       run: npm ci
       
     - name: CDK synth
-      if: steps.cache-cdk-assets.outputs.cache-hit != 'true'
       run: npx cdk synth
       
     - name: Configure AWS credentials
