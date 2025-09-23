@@ -318,7 +318,7 @@ export async function getGoogleCredentials(
 ): Promise<GoogleCredentials> {
   try {
     console.log('Secrets ManagerからGoogle認証情報を取得中...');
-    console.log('使用するシークレットID:', secretId);
+    // セキュリティ上の理由で、シークレットIDはログに出力しません
     
     const command = new GetSecretValueCommand({
       SecretId: secretId
