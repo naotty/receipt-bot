@@ -67,6 +67,7 @@ export class ReceiptBotStack extends cdk.Stack {
         `arn:aws:bedrock:ap-northeast-2::foundation-model/*`,
         `arn:aws:bedrock:ap-northeast-3::foundation-model/*`,
         `arn:aws:bedrock:ap-south-1::foundation-model/*`,
+        "arn:aws:bedrock:ap-south-2::foundation-model/*",
         `arn:aws:bedrock:ap-southeast-1::foundation-model/*`,
         `arn:aws:bedrock:ap-southeast-2::foundation-model/*`,
         
