@@ -144,7 +144,7 @@ export async function extractDataWithAI(
   modelId: string, 
   bedrockClient: BedrockRuntimeClient
 ): Promise<ExtractedData> {
-  const prompt = `メール本文から商品名、金額、支払い方法、適切な勘定科目を抽出してください。商品名がない場合は、サービス名を商品名としてください。以下のJSON形式で返してください：
+  const prompt = `メール本文から商品名、金額、支払い方法、適切な勘定科目を抽出してください。商品名がない場合は、サービス名を商品名としてください。以下のJSON形式で返してください。後続の処理で使うのでコードブロックにはしないでください。
 
 {
   "items": [
