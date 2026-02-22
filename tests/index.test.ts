@@ -4,7 +4,10 @@ import {
   logExtractedData, 
   prepareSheetRows,
   extractDataWithAI,
-  getGoogleCredentials
+  getGoogleCredentials,
+  extractImageAttachments,
+  deduplicateItems,
+  parseAndValidateExtractedData
 } from '../index';
 import { ParsedMail } from 'mailparser';
 
@@ -338,9 +341,26 @@ describe('Receipt Bot Functions', () => {
       const result = await extractDataWithAI('test content', 'test-model', mockBedrockClient);
 
       expect(result).toEqual({
-        items: [{ name: 'Test Product', amount: 1000, accountCategory: '消耗品' }],
+        items: [{ name: 'Test Product', amount: 1000, paymentMethod: 'クレカ', accountCategory: '消耗品' }],
         total: 1000
       });
+    });
+
+    it('should send up to two images to Bedrock', async () => {
+      const mockSend = jest.fn().mockResolvedValue({
+        body: new TextEncoder().encode(JSON.stringify({
+          content: [{ text: JSON.stringify({ items: [] }) }]
+        }))
+      });
+      const mockBedrockClient = { send: mockSend } as any;
+
+      const result = await extractDataWithAI('test content', 'test-model', mockBedrockClient, [
+        { mediaType: 'image/jpeg', data: 'base64-a' },
+        { mediaType: 'image/png', data: 'base64-b' }
+      ]);
+
+      expect(mockSend).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({ items: [] });
     });
 
     it('should extract data with payment methods', async () => {
@@ -409,9 +429,9 @@ describe('Receipt Bot Functions', () => {
 
       expect(result).toEqual({
         items: [
-          { name: '電車代', amount: 500, accountCategory: '交通費' },
-          { name: 'ボールペン', amount: 200, accountCategory: '消耗品' },
-          { name: '携帯料金', amount: 3000, accountCategory: '通信費' }
+          { name: '電車代', amount: 500, paymentMethod: 'クレカ', accountCategory: '交通費' },
+          { name: 'ボールペン', amount: 200, paymentMethod: 'クレカ', accountCategory: '消耗品' },
+          { name: '携帯料金', amount: 3000, paymentMethod: 'クレカ', accountCategory: '通信費' }
         ],
         total: 3700
       });
@@ -435,10 +455,104 @@ describe('Receipt Bot Functions', () => {
 
       const result = await extractDataWithAI('不明な費用', 'test-model', mockBedrockClient);
 
-      expect(result.items[0].accountCategory).toBe('');
+      expect(result.items[0].accountCategory).toBe('雑費');
       // prepareSheetRowsでデフォルト値「雑費」が設定されることをテスト
       const sheetRows = prepareSheetRows(result.items);
       expect(sheetRows[0][4]).toBe('雑費');
+    });
+  });
+
+  describe('extractImageAttachments', () => {
+    it('should extract only supported images and limit to 2', () => {
+      const email: Partial<ParsedMail> = {
+        attachments: [
+          {
+            contentType: 'image/jpeg',
+            content: Buffer.from('image-1'),
+            filename: 'a.jpg'
+          } as any,
+          {
+            contentType: 'image/png',
+            content: Buffer.from('image-2'),
+            filename: 'b.png'
+          } as any,
+          {
+            contentType: 'image/webp',
+            content: Buffer.from('image-3'),
+            filename: 'c.webp'
+          } as any,
+          {
+            contentType: 'application/pdf',
+            content: Buffer.from('doc'),
+            filename: 'd.pdf'
+          } as any
+        ]
+      };
+
+      const images = extractImageAttachments(email as ParsedMail);
+      expect(images).toHaveLength(2);
+      expect(images[0].mediaType).toBe('image/jpeg');
+      expect(images[1].mediaType).toBe('image/png');
+    });
+
+    it('should skip oversized images', () => {
+      const tooLarge = Buffer.alloc(6 * 1024 * 1024, 1);
+      const email: Partial<ParsedMail> = {
+        attachments: [
+          {
+            contentType: 'image/jpeg',
+            content: tooLarge,
+            filename: 'large.jpg'
+          } as any
+        ]
+      };
+
+      const images = extractImageAttachments(email as ParsedMail);
+      expect(images).toHaveLength(0);
+    });
+  });
+
+  describe('deduplicateItems', () => {
+    it('should remove duplicates by normalized key', () => {
+      const items = [
+        { name: ' コーヒー ', amount: 500, paymentMethod: '現金', accountCategory: '接待交際費' },
+        { name: 'コーヒー', amount: 500, paymentMethod: ' 現金 ', accountCategory: '接待交際費' },
+        { name: '電車代', amount: 300, paymentMethod: '電子マネー', accountCategory: '交通費' }
+      ];
+
+      const result = deduplicateItems(items);
+      expect(result).toHaveLength(2);
+      expect(result[0].name).toContain('コーヒー');
+      expect(result[1].name).toBe('電車代');
+    });
+  });
+
+  describe('parseAndValidateExtractedData', () => {
+    it('should sanitize invalid fields and keep only valid items', () => {
+      const raw = JSON.stringify({
+        items: [
+          { name: '  テスト ', amount: '1000', paymentMethod: 'UNKNOWN', accountCategory: 'UNKNOWN' },
+          { name: '', amount: -10, paymentMethod: '現金', accountCategory: '交通費' },
+          { name: '正常', amount: 500, paymentMethod: '現金', accountCategory: '交通費' }
+        ],
+        total: '999999999999'
+      });
+
+      const result = parseAndValidateExtractedData(raw);
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0]).toEqual({
+        name: 'テスト',
+        amount: 1000,
+        paymentMethod: 'クレカ',
+        accountCategory: '雑費'
+      });
+      expect(result.items[1]).toEqual({
+        name: '正常',
+        amount: 500,
+        paymentMethod: '現金',
+        accountCategory: '交通費'
+      });
+      expect(result.total).toBeUndefined();
     });
   });
 

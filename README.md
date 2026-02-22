@@ -237,30 +237,24 @@ aws secretsmanager update-secret \
   --secret-binary fileb://base64.json
 ```
 
-> **重要**: 
+> **重要**:
+>
 > - 認証情報はバイナリ形式（Base64エンコード）でSecrets Managerに保存されます。Lambda関数は自動的にデコード処理を行います。
 
 > - `your-credential-id` の部分は任意の名前で、環境変数 `AWS_SECRET_GOOGLE_CREDENTIALS_ID` に設定する値と同じものを使用してください。
 
 ### 利用可能なBedrockモデル（Inference Profile）
 
-**新しいClaude 3.5 Sonnet v2 (推奨)**
+**新しいClaude 3.7 Sonnet (推奨)**
 
 **APAC地域用（ap-northeast-1など）**
-- `apac.anthropic.claude-3-5-sonnet-20241022-v2:0` (クロスリージョン・高性能)
 
-**US地域用（us-east-1, us-west-2など）**
-- `us.anthropic.claude-3-5-sonnet-20241022-v2:0` (クロスリージョン・高性能)
+- `apac.anthropic.claude-3-7-sonnet-20250219-v1:0` (クロスリージョン・高性能)
 
-**従来モデル**
-- `anthropic.claude-3-sonnet-20240229-v1:0` (バランス型)
-- `anthropic.claude-3-haiku-20240307-v1:0` (高速・低コスト)
-- `amazon.titan-text-express-v1` (Amazon製)
-- `mistral.mistral-7b-instruct-v0:2` (Mistral AI)
-
-> **重要**: Claude 3.5 Sonnet v2は**inference profile**として提供されており、リージョンに応じて適切なプレフィックスが必要です：
+> **重要**: Claude 3.7 Sonnetは**inference profile**として提供されており、リージョンに応じて適切なプレフィックスが必要です：
+>
 > - **APAC地域**: `apac.` プレフィックス
-> - **US地域**: `us.` プレフィックス  
+> - **US地域**: `us.` プレフィックス
 > - **EU地域**: `eu.` プレフィックス
 
 ## デプロイ手順
@@ -288,11 +282,21 @@ npm run deploy
 1. SESのルールで設定したメールアドレスに領収書のメールを転送すると、自動的に処理が開始されます
 2. 処理結果は指定したGoogle Spreadsheetsに記録されます（日時、商品名、金額の順）
 
+## 添付画像の読み取り対応
+
+- メール本文に加えて、添付画像（`image/jpeg`, `image/png`, `image/webp`）からも明細抽出を行います。
+- 添付画像は**最大2枚**まで処理します（3枚目以降はスキップ）。
+- 本文と画像の抽出結果は統合され、`商品名 + 金額 + 支払い方法 + 勘定科目` が同一の明細は重複排除されます。
+
 ## セキュリティ機能
 
 - **送信者制限**: `ALLOWED_SENDER_EMAILS` 環境変数で指定したメールアドレスからのメールのみを処理
 - **認証情報保護**: Google認証情報はAWS Secrets Managerで暗号化して保存
 - **IAM権限**: Lambda関数は最小限の権限のみを付与
+- **プロンプトインジェクション対策**: 本文・画像内の命令文を無視し、明細抽出以外の指示に従わないようプロンプトで制約
+- **出力バリデーション**: AI応答JSONを検証し、許可値外の支払い方法/勘定科目は安全な既定値（`クレカ`/`雑費`）にフォールバック
+- **異常値フィルタ**: 不正な金額（負数・極端な値）を除外し、抽出件数にも上限を設定
+- **添付画像制限**: 対応MIME・最大2枚に加え、1画像あたりサイズ上限を超えるファイルをスキップ
 
 ## 技術スタック
 
