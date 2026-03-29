@@ -79,6 +79,16 @@ export class ReceiptBotStack extends cdk.Stack {
       ]
     }));
 
+    // BedrockのMarketplace経由モデル利用時に必要な権限
+    receiptFunction.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'aws-marketplace:ViewSubscriptions',
+        'aws-marketplace:Subscribe'
+      ],
+      resources: ['*']
+    }));
+
     // Secrets Managerへのアクセス権限を付与
     const googleCredentialsSecretId = props.awsSecretGoogleCredentialsId;
     receiptFunction.addToRolePolicy(new iam.PolicyStatement({
