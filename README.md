@@ -11,7 +11,7 @@
 - Node.js v22以上
 - AWS CLIのセットアップと認証済み
 - 以下のアカウントと認証情報
-  - AWS BedrockのModel Accessが有効（Claude 3 Sonnetなど）
+  - AWS BedrockのModel Accessが有効（Claude Haiku 4.5 など）
   - Google Cloud Platformのサービスアカウント
   - Google Sheets APIの有効化済み
 - S3バケットは事前に作成しておく
@@ -161,7 +161,7 @@ awslocal secretsmanager get-secret-value --secret-id local-google-credentials --
 1. AWS ConsoleでAmazon Bedrockサービスに移動
 2. 左メニューから「Model access」を選択
 3. 「Enable specific models」をクリック
-4. 使用したいモデル（推奨：Claude 3.5 Sonnet）を選択
+4. 使用したいモデル（推奨：Claude Haiku 4.5）を選択
 5. 「Request model access」で申請（通常は即座に承認される）
 
 ## 環境変数の設定
@@ -172,7 +172,7 @@ awslocal secretsmanager get-secret-value --secret-id local-google-credentials --
 # AWS
 AWS_REGION=ap-northeast-1
 S3_BUCKET_NAME=your-unique-bucket-name
-BEDROCK_MODEL_ID=apac.anthropic.claude-3-5-sonnet-20241022-v2:0
+BEDROCK_MODEL_ID=jp.anthropic.claude-haiku-4-5-20251001-v1:0
 AWS_SECRET_GOOGLE_CREDENTIALS_ID=your-credential-id
 
 # Google Sheets
@@ -245,17 +245,13 @@ aws secretsmanager update-secret \
 
 ### 利用可能なBedrockモデル（Inference Profile）
 
-**新しいClaude 3.7 Sonnet (推奨)**
+本プロジェクトのデフォルトは **東京リージョン（ap-northeast-1）** で次の Inference Profile を使います。
 
-**APAC地域用（ap-northeast-1など）**
+- `jp.anthropic.claude-haiku-4-5-20251001-v1:0`（JP 向け Claude Haiku 4.5）
 
-- `apac.anthropic.claude-3-7-sonnet-20250219-v1:0` (クロスリージョン・高性能)
+環境変数 `BEDROCK_MODEL_ID` に上記を設定してください。
 
-> **重要**: Claude 3.7 Sonnetは**inference profile**として提供されており、リージョンに応じて適切なプレフィックスが必要です：
->
-> - **APAC地域**: `apac.` プレフィックス
-> - **US地域**: `us.` プレフィックス
-> - **EU地域**: `eu.` プレフィックス
+> **参考**: Inference Profile はリージョンごとに ID が異なります。利用可能なプロファイルと Source Regions は [Supported Regions and models for inference profiles](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html) を参照してください。基盤モデルの Model ID は [Supported foundation models](https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html) に一覧があります。
 
 ## デプロイ手順
 
@@ -300,7 +296,7 @@ npm run deploy
 
 ## 技術スタック
 
-- **AI/ML**: AWS Bedrock (Claude 3 Sonnet)
+- **AI/ML**: AWS Bedrock（Claude Haiku 4.5、Inference Profile `jp.anthropic.claude-haiku-4-5-20251001-v1:0`）
 - **コンピューティング**: AWS Lambda
 - **ストレージ**: Amazon S3
 - **メール**: Amazon SES
