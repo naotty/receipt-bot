@@ -33,7 +33,7 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_REGION: ${{ vars.AWS_REGION }}
   S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
   BEDROCK_MODEL_ID: ${{ secrets.BEDROCK_MODEL_ID }}
   AWS_SECRET_GOOGLE_CREDENTIALS_ID: ${{ secrets.AWS_SECRET_GOOGLE_CREDENTIALS_ID }}
@@ -174,12 +174,12 @@ jobs:
       
     - name: CDK synth
       run: npx cdk synth
-      
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN_PRODUCTION }}
-        aws-region: ${{ env.AWS_REGION }}
+        aws-region: ${{ vars.AWS_REGION }}
       
     - name: Deploy to production
       run: npm run deploy -- --context env=production 
