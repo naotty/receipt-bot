@@ -357,18 +357,55 @@ export function parseAndValidateExtractedData(extractedText: string): ExtractedD
 
 export function normalizeModelJsonOutput(extractedText: string): string {
   const trimmed = extractedText.trim();
-  const entireFenceMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  if (entireFenceMatch?.[1]) {
-    return entireFenceMatch[1].trim();
+  const fencedContent = extractFirstCodeFenceContent(trimmed);
+  if (fencedContent) {
+    return fencedContent;
   }
 
-  const partialFenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  if (partialFenceMatch?.[1]) {
-    return partialFenceMatch[1].trim();
+  return stripLeadingJsonLabel(trimmed).trim();
+}
+
+function extractFirstCodeFenceContent(text: string): string | null {
+  const fenceStart = text.indexOf('```');
+  if (fenceStart === -1) {
+    return null;
   }
 
-  // 稀に "json" だけが先頭に残る応答を救済する
-  return trimmed.replace(/^json\s*/i, '').trim();
+  let contentStart = fenceStart + 3;
+  while (contentStart < text.length && isAsciiWhitespace(text.charAt(contentStart))) {
+    contentStart += 1;
+  }
+
+  const maybeJson = text.slice(contentStart, contentStart + 4).toLowerCase();
+  const jsonBoundaryChar = text.charAt(contentStart + 4);
+  if (maybeJson === 'json' && (!jsonBoundaryChar || isAsciiWhitespace(jsonBoundaryChar))) {
+    contentStart += 4;
+    while (contentStart < text.length && isAsciiWhitespace(text.charAt(contentStart))) {
+      contentStart += 1;
+    }
+  }
+
+  const fenceEnd = text.indexOf('```', contentStart);
+  if (fenceEnd === -1) {
+    return null;
+  }
+
+  const content = text.slice(contentStart, fenceEnd).trim();
+  return content || null;
+}
+
+function stripLeadingJsonLabel(text: string): string {
+  const leftTrimmed = text.trimStart();
+  const head = leftTrimmed.slice(0, 4).toLowerCase();
+  const boundary = leftTrimmed.charAt(4);
+  if (head === 'json' && (!boundary || isAsciiWhitespace(boundary))) {
+    return leftTrimmed.slice(4).trimStart();
+  }
+  return leftTrimmed;
+}
+
+function isAsciiWhitespace(char: string): boolean {
+  return char === ' ' || char === '\n' || char === '\r' || char === '\t';
 }
 
 export function deduplicateItems(items: ExtractedItem[]): ExtractedItem[] {
