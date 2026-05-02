@@ -27,7 +27,7 @@
     "@aws-sdk/client-secrets-manager": "^3.995.0",
     "dotenv": "^16.5.0",
     "googleapis": "^133.0.0",
-    "mailparser": "^3.9.6",
+    "mailparser": "^3.9.8",
     "openai": "^4.0.0"
   },
   "devDependencies": {
