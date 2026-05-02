@@ -3,7 +3,6 @@ import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-sec
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { S3Event } from 'aws-lambda';
 import { simpleParser, ParsedMail } from 'mailparser';
-import { google } from 'googleapis';
 
 interface ExtractedItem {
   name: string;
@@ -487,6 +486,7 @@ export async function recordToGoogleSheets(
     console.log('送信者:', email.from?.text);
     
     const credentials = await getGoogleCredentials(config.secretId, secretsManager);
+    const { google } = await import('googleapis');
     const auth = new google.auth.GoogleAuth({
       credentials,
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],

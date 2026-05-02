@@ -6,6 +6,7 @@ module.exports = {
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
+  ...(process.env.CI === 'true' ? { maxWorkers: 1 } : {}),
   collectCoverageFrom: [
     '*.ts',
     '!*.d.ts',

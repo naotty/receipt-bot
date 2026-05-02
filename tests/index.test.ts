@@ -16,6 +16,21 @@ jest.mock('@aws-sdk/client-s3');
 jest.mock('@aws-sdk/client-secrets-manager');
 jest.mock('@aws-sdk/client-bedrock-runtime');
 jest.mock('mailparser');
+jest.mock('googleapis', () => ({
+  google: {
+    auth: {
+      GoogleAuth: jest.fn().mockImplementation(() => ({})),
+    },
+    sheets: jest.fn(() => ({
+      spreadsheets: {
+        values: {
+          get: jest.fn(),
+          update: jest.fn(),
+        },
+      },
+    })),
+  },
+}));
 
 describe('Receipt Bot Functions', () => {
   

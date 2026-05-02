@@ -44,6 +44,8 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: --max-old-space-size=8192
     
     steps:
     - name: Checkout code
@@ -79,9 +81,6 @@ jobs:
       
     - name: TypeScript check
       run: npx tsc --noEmit
-      
-    - name: Run tests
-      run: npm test
       
     - name: Run tests with coverage
       run: npm run test:coverage
